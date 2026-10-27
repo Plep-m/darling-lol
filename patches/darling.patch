@@ -7837,7 +7837,7 @@ index 9a489b386..9fe56cc3f 100644
  
  - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 diff --git a/src/libsandbox/src/sandbox.c b/src/libsandbox/src/sandbox.c
-index 5af5298aa..fb59ee5d1 100644
+index 5af5298a..edceb5a7 100644
 --- a/src/libsandbox/src/sandbox.c
 +++ b/src/libsandbox/src/sandbox.c
 @@ -21,6 +21,8 @@
@@ -7849,7 +7849,7 @@ index 5af5298aa..fb59ee5d1 100644
  
  static int verbose = 0;
  
-@@ -29,63 +31,105 @@ static void initme(void) {
+@@ -29,63 +31,132 @@ static void initme(void) {
      verbose = getenv("STUB_VERBOSE") != NULL;
  }
  
@@ -7888,56 +7888,79 @@ index 5af5298aa..fb59ee5d1 100644
 +    if (verbose) puts("STUB: sandbox_extension_consume called");
 +    (void)token;
 +    return 0;
- }
- 
--void* sandbox_compile_file(void)
++}
++
 +int sandbox_extension_release(int64_t token)
 +{
 +    if (verbose) puts("STUB: sandbox_extension_release called");
 +    (void)token;
 +    return 0;
-+}
-+
+ }
+ 
+-void* sandbox_compile_file(void)
 +/* darling-lol: compile/apply family. No seatbelt compiler exists, so
 + * "compiling" a profile yields a dummy handle and applying succeeds.
 + * Signatures match Apple's (the old stubs had wrong shapes). */
 +
-+void* sandbox_compile_string(const char *profile, char **errorbuf)
++struct darling_sandbox_profile {
++    char* builtin;
++    unsigned char* data;
++    size_t size;
++};
++
++static const unsigned char darling_sandbox_bytecode[] = "darling-sandbox-stub";
++
++static void* darling_sandbox_profile_new(void)
++{
++    struct darling_sandbox_profile* profile = calloc(1, sizeof(*profile));
++    if (profile == NULL)
++        return NULL;
++    profile->size = sizeof(darling_sandbox_bytecode) - 1;
++    profile->data = malloc(profile->size);
++    if (profile->data == NULL) {
++        free(profile);
++        return NULL;
++    }
++    memcpy(profile->data, darling_sandbox_bytecode, profile->size);
++    return profile;
++}
++
++void* sandbox_compile_string(const char *profile, void *params, char **errorbuf)
 +{
 +    if (verbose) puts("STUB: sandbox_compile_string called");
 +    if (errorbuf != NULL) *errorbuf = NULL;
-+    (void)profile;
-+    return strdup("darling-sandbox-stub");
++    (void)profile; (void)params;
++    return darling_sandbox_profile_new();
 +}
 +
-+void* sandbox_compile_file(const char *path, char **errorbuf)
++void* sandbox_compile_file(const char *path, void *params, char **errorbuf)
  {
      if (verbose) puts("STUB: sandbox_compile_file called");
 -    return NULL;
 +    if (errorbuf != NULL) *errorbuf = NULL;
-+    (void)path;
-+    return strdup("darling-sandbox-stub");
++    (void)path; (void)params;
++    return darling_sandbox_profile_new();
  }
  
 -void* sandbox_compile_named(void)
-+void* sandbox_compile_named(const char *name, char **errorbuf)
++void* sandbox_compile_named(const char *name, void *params, char **errorbuf)
  {
      if (verbose) puts("STUB: sandbox_compile_named called");
 -    return NULL;
 +    if (errorbuf != NULL) *errorbuf = NULL;
-+    (void)name;
-+    return strdup("darling-sandbox-stub");
++    (void)name; (void)params;
++    return darling_sandbox_profile_new();
  }
  
 -void* sandbox_compile_string(void)
-+void* sandbox_compile_entitlements(void *entitlements, char **errorbuf)
++void* sandbox_compile_entitlements(void *entitlements, void *params, char **errorbuf)
  {
 -    if (verbose) puts("STUB: sandbox_compile_string called");
 -    return NULL;
 +    if (verbose) puts("STUB: sandbox_compile_entitlements called");
 +    if (errorbuf != NULL) *errorbuf = NULL;
-+    (void)entitlements;
-+    return strdup("darling-sandbox-stub");
++    (void)entitlements; (void)params;
++    return darling_sandbox_profile_new();
  }
  
 -void* sandbox_container_paths_iterate_items(void)
@@ -7954,8 +7977,12 @@ index 5af5298aa..fb59ee5d1 100644
 +void sandbox_free_profile(void *handle)
  {
 -    if (verbose) puts("STUB: sandbox_create_params called");
++    struct darling_sandbox_profile* profile = handle;
 +    if (verbose) puts("STUB: sandbox_free_profile called");
-+    free(handle);
++    if (profile == NULL)
++        return;
++    free(profile->data);
++    free(profile);
 +}
 +
 +void* sandbox_apply_container(void)
@@ -11465,3 +11492,17 @@ index a68739ff..5c8eb836 100644
  }
  
  size_t
+diff --git a/src/libm/Source/Intel/xmm_log.c b/src/libm/Source/Intel/xmm_log.c
+index 336dfc91..eed26d7b 100644
+--- a/src/libm/Source/Intel/xmm_log.c
++++ b/src/libm/Source/Intel/xmm_log.c
+@@ -421,6 +421,9 @@ double log2( double x )
+ 	
+ 	// mainline: 0 < x < inf
+ 	if( _mm_istrue_sd( _mm_and_pd( xGTzero, xLTinf ) ) ) {
++		union { double d; unsigned long long u; } bits = { x };
++		if( (bits.u & 0x000FFFFFFFFFFFFFULL) == 0 && (bits.u >> 52) != 0 )
++			return (double)((int)(bits.u >> 52) - 1023);
+ 		xd = _xlog(xd);
+ 		xd = _mm_mul_sdm(xd, &conversion);
+ 	}

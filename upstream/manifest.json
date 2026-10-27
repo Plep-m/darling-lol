@@ -8,7 +8,7 @@
       "revision": "60ba801decee7a00782f74f6be4c8ffb013f79ff",
       "repository": "https://github.com/darlinghq/darling.git",
       "patch": "patches/darling.patch",
-      "modified_files": 89,
+      "modified_files": 90,
       "new_files": [
         "src/CoreAudio/CoreAudio/AudioConverterShim.c",
         "src/CoreAudio/AudioTrace.h",
@@ -118,7 +118,7 @@
       "revision": "55a4341b470c2a56fea667c1d2167fb074226f04",
       "repository": "https://github.com/darlinghq/darling-foundation.git",
       "patch": "patches/foundation.patch",
-      "modified_files": 4,
+      "modified_files": 6,
       "new_files": []
     },
     {
@@ -258,7 +258,7 @@
       "revision": "1a12df76d12bfc9fdfffadb290f7742763568765",
       "repository": "https://github.com/darlinghq/darling-objc4.git",
       "patch": "patches/objc4.patch",
-      "modified_files": 2,
+      "modified_files": 3,
       "new_files": []
     },
     {
@@ -274,7 +274,7 @@
       "revision": "fa29287aa2f0115271e091f1031f53c9e024005d",
       "repository": "https://github.com/darlinghq/darling-xnu.git",
       "patch": "patches/xnu.patch",
-      "modified_files": 65,
+      "modified_files": 69,
       "new_files": [
         "darling/src/libsystem_kernel/emulation/include/common/cpu_topology.h",
         "darling/src/libsystem_kernel/emulation/include/common/private_mutex.h",
