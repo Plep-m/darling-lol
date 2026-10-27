@@ -1,8 +1,16 @@
 diff --git a/include/nw/path.h b/include/nw/path.h
-index 5ac8c9f..adfd1a3 100644
+index 5ac8c9f..1e07767 100644
 --- a/include/nw/path.h
 +++ b/include/nw/path.h
-@@ -180,13 +180,14 @@ void* nw_path_nexus_can_support_user_packet_pool(void);
+@@ -40,6 +40,7 @@ typedef _NW_ENUM(int, nw_path_reason_t) {
+ };
+ 
+ _NW_OPAQUE(nw_path);
++_NW_OPAQUE(nw_path_monitor);
+ 
+ void* nw_path_allows_multipath(void);
+ void* nw_path_assert_agent(void);
+@@ -180,13 +181,14 @@ void* nw_path_nexus_can_support_user_packet_pool(void);
  void* nw_path_nexus_should_use_event_ring(void);
  
  // same with these
@@ -13,19 +21,19 @@ index 5ac8c9f..adfd1a3 100644
 -void* nw_path_monitor_set_queue(void);
 -void* nw_path_monitor_set_update_handler(void);
 -void* nw_path_monitor_start(void);
-+void nw_path_monitor_cancel(id monitor);
-+id nw_path_monitor_create(void);
-+id nw_path_monitor_create_with_type(int required_interface_type);
-+void nw_path_monitor_prohibit_interface_type(id monitor, int interface_type);
-+void nw_path_monitor_set_cancel_handler(id monitor, void (^cancel_handler)(void));
-+void nw_path_monitor_set_queue(id monitor, dispatch_queue_t queue);
-+void nw_path_monitor_set_update_handler(id monitor, void (^update_handler)(nw_path_t path));
-+void nw_path_monitor_start(id monitor);
++void nw_path_monitor_cancel(nw_path_monitor_t monitor);
++nw_path_monitor_t nw_path_monitor_create(void);
++nw_path_monitor_t nw_path_monitor_create_with_type(int required_interface_type);
++void nw_path_monitor_prohibit_interface_type(nw_path_monitor_t monitor, int interface_type);
++void nw_path_monitor_set_cancel_handler(nw_path_monitor_t monitor, void (^cancel_handler)(void));
++void nw_path_monitor_set_queue(nw_path_monitor_t monitor, dispatch_queue_t queue);
++void nw_path_monitor_set_update_handler(nw_path_monitor_t monitor, void (^update_handler)(nw_path_t path));
++void nw_path_monitor_start(nw_path_monitor_t monitor);
  
  // maybe these too?
  void* nw_path_listener_is_interface_specific(void);
 diff --git a/src/nw/path.m b/src/nw/path.m
-index faf486a..a58237d 100644
+index faf486a..a932b3a 100644
 --- a/src/nw/path.m
 +++ b/src/nw/path.m
 @@ -19,6 +19,8 @@
@@ -84,50 +92,50 @@ index faf486a..a58237d 100644
 +}
 +@end
 +
-+id nw_path_monitor_create(void)
++nw_path_monitor_t nw_path_monitor_create(void)
 +{
-+	return [[NWConcrete_nw_path_monitor alloc] init];
++	return (nw_path_monitor_t)[[NWConcrete_nw_path_monitor alloc] init];
 +}
 +
-+id nw_path_monitor_create_with_type(int required_interface_type)
++nw_path_monitor_t nw_path_monitor_create_with_type(int required_interface_type)
 +{
 +	(void)required_interface_type;
 +	return nw_path_monitor_create();
 +}
 +
-+void nw_path_monitor_prohibit_interface_type(id monitor, int interface_type)
++void nw_path_monitor_prohibit_interface_type(nw_path_monitor_t monitor, int interface_type)
 +{
 +	(void)monitor; (void)interface_type;
 +}
 +
-+void nw_path_monitor_set_queue(id monitor, dispatch_queue_t queue)
++void nw_path_monitor_set_queue(nw_path_monitor_t monitor, dispatch_queue_t queue)
 +{
-+	NWConcrete_nw_path_monitor* m = monitor;
++	NWConcrete_nw_path_monitor* m = (NWConcrete_nw_path_monitor*)monitor;
 +	if (m == nil) return;
 +	if (queue) dispatch_retain(queue);
 +	if (m->queue) dispatch_release(m->queue);
 +	m->queue = queue;
 +}
 +
-+void nw_path_monitor_set_update_handler(id monitor, void (^update_handler)(nw_path_t path))
++void nw_path_monitor_set_update_handler(nw_path_monitor_t monitor, void (^update_handler)(nw_path_t path))
 +{
-+	NWConcrete_nw_path_monitor* m = monitor;
++	NWConcrete_nw_path_monitor* m = (NWConcrete_nw_path_monitor*)monitor;
 +	if (m == nil) return;
 +	if (m->update_handler) Block_release(m->update_handler);
 +	m->update_handler = update_handler ? Block_copy(update_handler) : NULL;
 +}
 +
-+void nw_path_monitor_set_cancel_handler(id monitor, void (^cancel_handler)(void))
++void nw_path_monitor_set_cancel_handler(nw_path_monitor_t monitor, void (^cancel_handler)(void))
 +{
-+	NWConcrete_nw_path_monitor* m = monitor;
++	NWConcrete_nw_path_monitor* m = (NWConcrete_nw_path_monitor*)monitor;
 +	if (m == nil) return;
 +	if (m->cancel_handler) Block_release(m->cancel_handler);
 +	m->cancel_handler = cancel_handler ? Block_copy(cancel_handler) : NULL;
 +}
 +
-+void nw_path_monitor_start(id monitor)
++void nw_path_monitor_start(nw_path_monitor_t monitor)
 +{
-+	NWConcrete_nw_path_monitor* m = monitor;
++	NWConcrete_nw_path_monitor* m = (NWConcrete_nw_path_monitor*)monitor;
 +	if (m == nil || m->started || m->queue == NULL) return;
 +	m->started = true;
 +	[m retain];
@@ -141,9 +149,9 @@ index faf486a..a58237d 100644
 +	});
 +}
 +
-+void nw_path_monitor_cancel(id monitor)
++void nw_path_monitor_cancel(nw_path_monitor_t monitor)
 +{
-+	NWConcrete_nw_path_monitor* m = monitor;
++	NWConcrete_nw_path_monitor* m = (NWConcrete_nw_path_monitor*)monitor;
 +	if (m == nil || m->cancelled) return;
 +	m->cancelled = true;
 +	if (m->cancel_handler && m->queue) {
